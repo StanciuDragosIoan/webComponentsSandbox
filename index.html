@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShadowDom</title>
+    <style>
+         themable-component {
+            --card-bg: #f8f8f8;
+            --card-color: #333;
+            --card-radius: 8px;
+        }
+
+        progress-bar::part(container) {
+    height: 30px;
+    background-color: #f0f0f0;
+  }
+  progress-bar::part(bar) {
+    background-color: #2196f3;
+  }
+    </style>
+</head>
+<body>
+    
+    <simple-component/>
+     
+    <isolated-component>
+
+        <styled-component/>
+
+        <themable-component/>
+
+        <event-component/>
+
+        <!-- slots usage -->
+        <card-component>
+            <h2 slot="header">Custom Header</h2>
+            <p>This goes in the default slot</p>
+            <div slot="footer">Custom Footer</div>
+          </card-component>
+
+          <!-- slotted content -->
+          <media-card>
+            <media slot="header"></media>
+          </media-card>
+
+          <!-- template stamping -->
+           <user-card>
+            <div slot="avatar"></div>
+           </user-card>
+
+           <progress-bar progress="75"></progress-bar>
+
+           <fancy-button>Click me</fancy-button>
+
+           <fancy-dialogue>DialogueHere</fancy-dialogue>
+    <script>
+        // Creating a basic shadow DOM
+class SimpleComponent extends HTMLElement {
+  constructor() {
+    super();
+    // Create a shadow root
+    const shadow = this.attachShadow({mode: 'open'});
+
+    // Create element
+    const wrapper = document.createElement('div');
+    wrapper.textContent = 'This content is encapsulated';
+
+    // Add to shadow DOM
+    shadow.appendChild(wrapper);
+  }
+}
+
+// Register the custom element
+// customElements.define('simple-component', SimpleComponent);
+
+//DOM ISOLATION TEchniques
+// DOM isolation example
+class IsolatedComponent extends HTMLElement {
+  constructor() {
+    super();
+
+    // Create shadow root with open mode
+    const shadow = this.attachShadow({mode: 'open'});
+
+    // Create internal structure
+    shadow.innerHTML = `
+      <div class="container">
+        <h2 id="header">Internal Header</h2>
+        <div class="content">
+          <p>This content is isolated from the main document</p>
+        </div>
+      </div>
+    `;
+
+    // These selectors won't conflict with the main document
+    const header = shadow.querySelector('#header');
+    header.style.color = 'blue';
+  }
+}
+
+// customElements.define('isolated-component', IsolatedComponent);
+
+//Style encpasulation
+
+class StyledComponent extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    // Styles only apply within this component
+    shadow.innerHTML = `
+      <style>
+        /* Component styles won't leak out */
+        p { 
+          color: red;
+          font-size: 16px;
+          padding: 10px;
+          background: #f0f0f0;
+        }
+
+        /* :host selector targets the component itself */
+        :host {
+          display: block;
+          border: 1px solid #ccc;
+          margin: 20px 0;
+        }
+
+        /* Host context allows responding to external state */
+        :host(:hover) {
+          border-color: blue;
+        }
+      </style>
+      <p>This paragraph has encapsulated styles</p>
+    `;
+  }
+}
+
+// customElements.define('styled-component', StyledComponent);
+
+//CSS custom properties
+class ThemableComponent extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    shadow.innerHTML = `
+      <style>
+        .card {
+          background-color: var(--card-bg, white);
+          color: var(--card-color, black);
+          border: 1px solid var(--card-border-color, #ddd);
+          padding: 20px;
+          border-radius: var(--card-radius, 4px);
+        }
+      </style>
+      <div class="card">
+        <slot></slot>
+      </div>
+    `;
+  }
+}
+
+// customElements.define('themable-component', ThemableComponent);
+
+//event Handling and Retargeting
+
+class EventComponent extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    shadow.innerHTML = `
+      <button id="internal-button">Click Me</button>
+      <div id="result"></div>
+    `;
+
+    // Internal event handling
+    const button = shadow.getElementById('internal-button');
+    const result = shadow.getElementById('result');
+
+    button.addEventListener('click', (e) => {
+      result.textContent = 'Button was clicked!';
+
+      // Custom event that crosses shadow boundary
+      const customEvent = new CustomEvent('button-clicked', {
+        bubbles: true,
+        composed: true, // Allows event to cross shadow boundary
+        detail: { time: new Date() }
+      });
+      this.dispatchEvent(customEvent);
+    });
+  }
+}
+
+// customElements.define('event-component', EventComponent);
+
+
+//event retargeting usage
+document.querySelector('event-component')
+  .addEventListener('button-clicked', (e) => {
+    console.log('External handler caught event:', e.detail.time);
+  });
+
+
+  class CardComponent extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    shadow.innerHTML = `
+      <style>
+        .card {
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .header {
+          background: #f5f5f5;
+          padding: 10px 15px;
+          border-bottom: 1px solid #ddd;
+          font-weight: bold;
+        }
+        .content {
+          padding: 15px;
+        }
+        .footer {
+          background: #f5f5f5;
+          padding: 10px 15px;
+          border-top: 1px solid #ddd;
+        }
+      </style>
+      <div class="card">
+        <div class="header">
+          <slot name="header">Default Header</slot>
+        </div>
+        <div class="content">
+          <slot>Default content</slot>
+        </div>
+        <div class="footer">
+          <slot name="footer">Default Footer</slot>
+        </div>
+      </div>
+    `;
+
+    // Detect when slotted content changes
+    const slots = shadow.querySelectorAll('slot');
+    slots.forEach(slot => {
+      slot.addEventListener('slotchange', (e) => {
+        console.log(`Content in ${slot.name || 'default'} slot changed`);
+      });
+    });
+  }
+}
+
+// customElements.define('card-component', CardComponent);
+
+  //working with slotted content
+  class MediaCard extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    shadow.innerHTML = `
+      <style>
+        .container {
+          border: 1px solid #ddd;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+
+        /* Style slotted elements */
+        ::slotted(img) {
+          width: 100%;
+          height: auto;
+          display: block;
+        }
+
+        ::slotted(h3) {
+          margin: 0;
+          padding: 15px;
+          background: #f0f0f0;
+        }
+
+        ::slotted(p) {
+          padding: 0 15px 15px;
+          margin: 0;
+        }
+      </style>
+      <div class="container">
+        <slot name="media"></slot>
+        <slot name="title"></slot>
+        <slot name="content"></slot>
+      </div>
+    `;
+
+    // Access nodes assigned to a slot
+    setTimeout(() => {
+      const titleSlot = shadow.querySelector('slot[name="title"]');
+      const assignedElements = titleSlot.assignedNodes({flatten: true});
+      console.log('Elements in title slot:', assignedElements);
+    }, 0);
+  }
+}
+
+// customElements.define('media-card', MediaCard);
+
+
+//Template Stamping
+// Define a template in the HTML
+/*
+<template id="user-card-template">
+  <style>
+    .card {
+      display: flex;
+      align-items: center;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin-right: 15px;
+    }
+    .info h3 {
+      margin: 0 0 5px 0;
+    }
+    .info p {
+      margin: 0;
+      color: #666;
+    }
+  </style>
+  <div class="card">
+    <img class="avatar" />
+    <div class="info">
+      <h3 class="name"></h3>
+      <p class="role"></p>
+    </div>
+  </div>
+</template>
+*/
+
+class UserCard extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    // Clone the template content
+    const template = document.getElementById('user-card-template');
+    const clone = template.content.cloneNode(true);
+
+    // Fill with data from attributes
+    const avatar = clone.querySelector('.avatar');
+    avatar.src = this.getAttribute('avatar') || 'default-avatar.png';
+
+    const name = clone.querySelector('.name');
+    name.textContent = this.getAttribute('name') || 'Unknown User';
+
+    const role = clone.querySelector('.role');
+    role.textContent = this.getAttribute('role') || 'User';
+
+    shadow.appendChild(clone);
+  }
+}
+
+// customElements.define('user-card', UserCard);
+
+//Part Mapping for Styling Hook Exposure
+class ProgressBar extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    shadow.innerHTML = `
+      <style>
+        .container {
+          width: 100%;
+          height: 20px;
+          background-color: #e0e0e0;
+          border-radius: 10px;
+          overflow: hidden;
+        }
+        .bar {
+          height: 100%;
+          width: 0;
+          background-color: #4caf50;
+          transition: width 0.3s ease;
+        }
+      </style>
+      <div class="container" part="container">
+        <div class="bar" part="bar"></div>
+      </div>
+    `;
+
+    this._bar = shadow.querySelector('.bar');
+  }
+
+  static get observedAttributes() {
+    return ['progress'];
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === 'progress') {
+      const progress = parseInt(newValue) || 0;
+      this._bar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+    }
+  }
+}
+
+// customElements.define('progress-bar', ProgressBar);
+
+// Usage with part styling
+/*
+<style>
+  progress-bar::part(container) {
+    height: 30px;
+    background-color: #f0f0f0;
+  }
+  progress-bar::part(bar) {
+    background-color: #2196f3;
+  }
+</style>
+<progress-bar progress="75"></progress-bar>
+*/
+
+//Advanced Composition with Shadow DOM
+
+// A reusable button component
+class FancyButton extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    shadow.innerHTML = `
+      <style>
+        :host {
+          display: inline-block;
+        }
+        button {
+          padding: 8px 16px;
+          background: var(--button-bg, #4285f4);
+          color: var(--button-color, white);
+          border: none;
+          border-radius: 4px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        button:hover {
+          opacity: 0.9;
+          transform: translateY(-1px);
+        }
+      </style>
+      <button><slot></slot></button>
+    `;
+
+    this._button = shadow.querySelector('button');
+    this._button.addEventListener('click', e => {
+      this.dispatchEvent(new CustomEvent('fancy-click', {
+        bubbles: true,
+        composed: true
+      }));
+    });
+  }
+}
+
+// A dialog component that uses the button component (this example does not work - check why multiple custom elements do not work)
+class FancyDialog extends HTMLElement {
+  constructor() {
+    super();
+    const shadow = this.attachShadow({mode: 'open'});
+
+    shadow.innerHTML = `
+      <style>
+        :host {
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0,0,0,0.5);
+          align-items: center;
+          justify-content: center;
+        }
+        :host([open]) {
+          display: flex;
+        }
+        .dialog {
+          background: white;
+          border-radius: 8px;
+          min-width: 300px;
+          max-width: 80%;
+          max-height: 80%;
+          overflow: auto;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .header {
+          padding: 16px;
+          border-bottom: 1px solid #eee;
+          font-size: 18px;
+          font-weight: bold;
+        }
+        .content {
+          padding: 16px;
+        }
+        .footer {
+          padding: 16px;
+          border-top: 1px solid #eee;
+          display: flex;
+          justify-content: flex-end;
+        }
+        fancy-button {
+          margin-left: 8px;
+          --button-bg: #ddd;
+          --button-color: #333;
+        }
+        fancy-button.primary {
+          --button-bg: #4285f4;
+          --button-color: white;
+        }
+      </style>
+      <div class="dialog">
+        <div class="header">
+          <slot name="header">Dialog Title</slot>
+        </div>
+        <div class="content">
+          <slot></slot>
+        </div>
+        <div class="footer">
+          <fancy-button id="cancel">Cancel</fancy-button>
+          <fancy-button id="confirm" class="primary">OK</fancy-button>
+        </div>
+      </div>
+    `;
+
+    // Set up event listeners
+    const cancelBtn = shadow.getElementById('cancel');
+    const confirmBtn = shadow.getElementById('confirm');
+
+    cancelBtn.addEventListener('fancy-click', () => {
+      this.close();
+      this.dispatchEvent(new CustomEvent('dialog-cancel', {
+        bubbles: true,
+        composed: true
+      }));
+    });
+
+    confirmBtn.addEventListener('fancy-click', () => {
+      this.close();
+      this.dispatchEvent(new CustomEvent('dialog-confirm', {
+        bubbles: true,
+        composed: true
+      }));
+    });
+  }
+
+  // Public API
+  open() {
+    this.setAttribute('open', '');
+  }
+
+  close() {
+    this.removeAttribute('open');
+  }
+}
+
+customElements.define('fancy-button', FancyButton);
+customElements.define('fancy-dialog', FancyDialog);
+// document.addEventListener("dialog-confirm", ()=>console.log('test'))
+
+// document.querySelector('fancy-button')
+//   .addEventListener('dialog-confirm', (e) => {
+//     console.log('External handler caught event:', e.detail.time);
+//   });
+
+    </script>
+</body>
+</html>
